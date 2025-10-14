@@ -1,10 +1,13 @@
 package com.onclass.bootcamp.infrastructure.adapters.persistence;
 
+import com.onclass.bootcamp.domain.criteria.BootcampCriteria;
 import com.onclass.bootcamp.domain.model.Bootcamp;
 import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
+import com.onclass.bootcamp.domain.utils.PageResult;
 import com.onclass.bootcamp.infrastructure.adapters.persistence.entity.BootcampEntity;
 import com.onclass.bootcamp.infrastructure.adapters.persistence.mapper.BootcampEntityMapper;
 import com.onclass.bootcamp.infrastructure.adapters.persistence.repository.BootcampRepository;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampListDTO;
 import reactor.core.publisher.Mono;
 
 public class BootcampPersistenceAdapter implements BootcampPersistencePort {
@@ -31,5 +34,29 @@ public class BootcampPersistenceAdapter implements BootcampPersistencePort {
                 .map(bootcampEntityMapper::toModel)
                 .map(b -> true)
                 .defaultIfEmpty(false);
+    }
+
+    @Override
+    public Mono<PageResult<BootcampListDTO>> findAll(BootcampCriteria criteria) {
+        return bootcampRepository.findAllByFilters(criteria)
+                .map(bootcampEntityMapper::toListDTO)
+                .collectList()
+                .zipWith(bootcampRepository.countByFilters(criteria))
+                .map(tuple -> {
+                    long totalElements = tuple.getT2();
+                    int totalPages = (int) Math.ceil((double) totalElements / criteria.getSize());
+                    boolean isFirst = criteria.getPage() == 0;
+                    boolean isLast = criteria.getPage() == totalPages - 1;
+
+                    return new PageResult<>(
+                            tuple.getT1(),
+                            totalElements,
+                            totalPages,
+                            criteria.getPage(),
+                            criteria.getSize(),
+                            isFirst,
+                            isLast
+                    );
+                });
     }
 }

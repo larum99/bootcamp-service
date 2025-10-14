@@ -1,16 +1,21 @@
 package com.onclass.bootcamp.domain.usecase;
 
 import com.onclass.bootcamp.domain.constants.Constants;
+import com.onclass.bootcamp.domain.criteria.BootcampCriteria;
 import com.onclass.bootcamp.domain.enums.TechnicalMessage;
 import com.onclass.bootcamp.domain.exceptions.BusinessException;
 import com.onclass.bootcamp.domain.model.Bootcamp;
 import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
 import com.onclass.bootcamp.domain.spi.CapacidadClientPort;
+import com.onclass.bootcamp.domain.utils.PageResult;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampListDTO;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadSummaryDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -18,10 +23,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.LongStream;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
 class BootcampUseCaseTest {
@@ -151,6 +153,84 @@ class BootcampUseCaseTest {
         StepVerifier.create(bootcampUseCase.registrarBootcamp(bootcampValido, "msg"))
                 .expectErrorMatches(e -> e instanceof BusinessException &&
                         ((BusinessException) e).getMessage().equals(TechnicalMessage.BOOTCAMP_ALREADY_EXISTS.getDescription()))
+                .verify();
+    }
+
+    @Test
+    void listarBootcamps_sortByName_exito() {
+        // Arrange
+        BootcampListDTO b1 = new BootcampListDTO(1L, "Java", "desc", LocalDate.now(), 6, List.of());
+        BootcampListDTO b2 = new BootcampListDTO(2L, "Spring", "desc", LocalDate.now(), 6, List.of());
+        PageResult<BootcampListDTO> page = new PageResult<>(
+                List.of(b1, b2),
+                2L, 1, 0, 10, true, true
+        );
+
+        CapacidadSummaryDTO capacidad = new CapacidadSummaryDTO(1L, "Java Avanzado", List.of());
+
+        when(bootcampPersistencePort.findAll(any(BootcampCriteria.class)))
+                .thenReturn(Mono.just(page));
+
+        when(capacidadClientPort.findCapacidadesByBootcampId(anyLong()))
+                .thenReturn(Flux.just(capacidad));
+
+        // Act & Assert
+        StepVerifier.create(bootcampUseCase.listarBootcamps(new BootcampCriteria()))
+                .expectNextMatches(result ->
+                        result.getContent().size() == 2 &&
+                                result.getContent().get(0).nombre().equals("Java") &&
+                                result.getContent().get(1).nombre().equals("Spring"))
+                .verifyComplete();
+    }
+
+    @Test
+    void listarBootcamps_sortByCapacidadCount_exito() {
+        // Arrange
+        BootcampListDTO b1 = new BootcampListDTO(1L, "Java", "desc", LocalDate.now().plusDays(5), 8, List.of());
+        BootcampListDTO b2 = new BootcampListDTO(2L, "Angular", "desc", LocalDate.now().plusDays(5), 8, List.of());
+
+        PageResult<BootcampListDTO> page = new PageResult<>(
+                List.of(b1, b2),
+                2L, 1, 0, 10, true, true
+        );
+
+        BootcampCriteria criteria = new BootcampCriteria();
+        criteria.setSortBy(Constants.SORT_BY_CAPACIDAD_COUNT);
+        criteria.setSortOrder(Constants.SORT_ORDER_DESC);
+        criteria.setPage(0);
+        criteria.setSize(10);
+
+        // Mock capacidades por bootcamp
+        CapacidadSummaryDTO capJava1 = new CapacidadSummaryDTO(1L, "Java Avanzado", List.of());
+        CapacidadSummaryDTO capJava2 = new CapacidadSummaryDTO(2L, "Spring Boot", List.of());
+        CapacidadSummaryDTO capAngular = new CapacidadSummaryDTO(3L, "Angular", List.of());
+
+        when(bootcampPersistencePort.findAll(any(BootcampCriteria.class)))
+                .thenReturn(Mono.just(page));
+
+        when(capacidadClientPort.findCapacidadesByBootcampId(eq(1L)))
+                .thenReturn(Flux.just(capJava1, capJava2));
+        when(capacidadClientPort.findCapacidadesByBootcampId(eq(2L)))
+                .thenReturn(Flux.just(capAngular));
+
+        // Act & Assert
+        StepVerifier.create(bootcampUseCase.listarBootcamps(criteria))
+                .assertNext(result -> {
+                    assert result.getContent().size() == 2;
+                    assert result.getContent().get(0).nombre().equals("Java"); // mayor cantidad de capacidades
+                    assert result.getTotalElements() == 2;
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void listarBootcamps_parametroInvalido() {
+        BootcampCriteria criteria = new BootcampCriteria();
+        criteria.setSortBy("otroCampo");
+
+        StepVerifier.create(bootcampUseCase.listarBootcamps(criteria))
+                .expectErrorMatches(e -> e instanceof BusinessException &&
+                        ((BusinessException) e).getMessage().equals(TechnicalMessage.INVALID_PARAMETERS.getDescription()))
                 .verify();
     }
 }

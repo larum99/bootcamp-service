@@ -2,6 +2,7 @@ package com.onclass.bootcamp.infrastructure.adapters.persistence.mapper;
 
 import com.onclass.bootcamp.domain.model.Bootcamp;
 import com.onclass.bootcamp.infrastructure.adapters.persistence.entity.BootcampEntity;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampListDTO;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
@@ -20,4 +21,7 @@ public interface BootcampEntityMapper {
     @Mapping(target = "fechaLanzamiento", source = "fechaLanzamiento")
     @Mapping(target = "duracion", source = "duracion")
     BootcampEntity toEntity(Bootcamp bootcamp);
+
+    @Mapping(target = "capacidades", ignore = true)
+    BootcampListDTO toListDTO(BootcampEntity entity);
 }

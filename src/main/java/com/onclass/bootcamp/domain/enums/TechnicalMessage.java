@@ -5,7 +5,7 @@ public enum TechnicalMessage {
     // ======== Errores genéricos ========
     INTERNAL_ERROR("500", "Ha ocurrido un error interno, por favor intente nuevamente", ""),
     INVALID_REQUEST("400", "Solicitud incorrecta, por favor verifique los datos", ""),
-    INVALID_PARAMETERS("400-1", "Parámetros inválidos, por favor verifique los datos", ""),
+    INVALID_PARAMETERS("400-1",  "Parámetro 'sortBy' inválido. Use 'nombre' o 'cantidadCapacidades'.", "sortBy"),
 
     // ======== Mensajes específicos de Bootcamp ========
     BOOTCAMP_ALREADY_EXISTS("400-2", "El bootcamp ya está registrado", "nombre"),

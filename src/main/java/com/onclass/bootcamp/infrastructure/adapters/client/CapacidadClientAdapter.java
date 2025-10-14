@@ -2,6 +2,7 @@ package com.onclass.bootcamp.infrastructure.adapters.client;
 
 import com.onclass.bootcamp.domain.spi.CapacidadClientPort;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampCapacidadDTO;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadSummaryDTO;
 import com.onclass.bootcamp.infrastructure.entrypoints.util.Constants;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -36,5 +37,16 @@ public class CapacidadClientAdapter implements CapacidadClientPort {
                                 .retrieve()
                                 .bodyToMono(Void.class)
                 );
+    }
+
+    @Override
+    public Flux<CapacidadSummaryDTO> findCapacidadesByBootcampId(Long bootcampId) {
+        return webClient.get()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/capacidad-bootcamps/{bootcampId}/capacidades")
+                        .build(bootcampId))
+                .header(Constants.X_MESSAGE_ID, "12345")
+                .retrieve()
+                .bodyToFlux(CapacidadSummaryDTO.class);
     }
 }

@@ -1,6 +1,7 @@
 package com.onclass.bootcamp.infrastructure.entrypoints.handler;
 
 import com.onclass.bootcamp.domain.api.BootcampServicePort;
+import com.onclass.bootcamp.domain.criteria.BootcampCriteria;
 import com.onclass.bootcamp.domain.enums.TechnicalMessage;
 import com.onclass.bootcamp.domain.exceptions.BusinessException;
 import com.onclass.bootcamp.domain.exceptions.TechnicalException;
@@ -51,6 +52,33 @@ public class BootcampHandlerImpl {
                 .doOnError(ex -> log.error(Constants.BOOTCAMP_ERROR, ex))
                 .onErrorResume(ex -> handleErrors(ex, messageId));
     }
+
+    public Mono<ServerResponse> getBootcamps(ServerRequest request) {
+        String messageId = getMessageId(request);
+
+        int page = parseQueryParam(request, "page", 0);
+        int size = parseQueryParam(request, "size", 10);
+        String sortBy = request.queryParam("sortBy").orElse("nombre");
+        String sortOrder = request.queryParam("sortOrder").orElse("asc");
+
+        BootcampCriteria criteria = new BootcampCriteria();
+        criteria.setPage(page);
+        criteria.setSize(size);
+        criteria.setSortBy(sortBy);
+        criteria.setSortOrder(sortOrder);
+
+        return bootcampServicePort.listarBootcamps(criteria)
+                .flatMap(pageResult -> ServerResponse.ok().bodyValue(pageResult))
+                .onErrorResume(ex -> handleErrors(ex, messageId))
+                .contextWrite(Context.of(Constants.X_MESSAGE_ID, messageId));
+    }
+
+    private int parseQueryParam(ServerRequest request, String name, int defaultValue) {
+        return request.queryParam(name)
+                .map(Integer::parseInt)
+                .orElse(defaultValue);
+    }
+
 
     private Mono<ServerResponse> handleErrors(Throwable ex, String messageId) {
         log.error("Error procesando solicitud con messageId: {}", messageId, ex);
