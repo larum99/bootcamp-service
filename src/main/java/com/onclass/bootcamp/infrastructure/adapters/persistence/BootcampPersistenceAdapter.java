@@ -2,12 +2,12 @@ package com.onclass.bootcamp.infrastructure.adapters.persistence;
 
 import com.onclass.bootcamp.domain.criteria.BootcampCriteria;
 import com.onclass.bootcamp.domain.model.Bootcamp;
+import com.onclass.bootcamp.domain.model.BootcampList;
 import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
 import com.onclass.bootcamp.domain.utils.PageResult;
 import com.onclass.bootcamp.infrastructure.adapters.persistence.entity.BootcampEntity;
 import com.onclass.bootcamp.infrastructure.adapters.persistence.mapper.BootcampEntityMapper;
 import com.onclass.bootcamp.infrastructure.adapters.persistence.repository.BootcampRepository;
-import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampListDTO;
 import reactor.core.publisher.Mono;
 
 public class BootcampPersistenceAdapter implements BootcampPersistencePort {
@@ -37,9 +37,9 @@ public class BootcampPersistenceAdapter implements BootcampPersistencePort {
     }
 
     @Override
-    public Mono<PageResult<BootcampListDTO>> findAll(BootcampCriteria criteria) {
+    public Mono<PageResult<BootcampList>> findAll(BootcampCriteria criteria) {
         return bootcampRepository.findAllByFilters(criteria)
-                .map(bootcampEntityMapper::toListDTO)
+                .map(bootcampEntityMapper::toListModel)
                 .collectList()
                 .zipWith(bootcampRepository.countByFilters(criteria))
                 .map(tuple -> {
