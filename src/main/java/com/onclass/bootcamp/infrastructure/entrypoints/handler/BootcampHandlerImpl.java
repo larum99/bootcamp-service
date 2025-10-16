@@ -73,6 +73,17 @@ public class BootcampHandlerImpl {
                 .contextWrite(Context.of(Constants.X_MESSAGE_ID, messageId));
     }
 
+    public Mono<ServerResponse> deleteBootcamp(ServerRequest request) {
+        Long bootcampId = Long.valueOf(request.pathVariable("id"));
+
+        return bootcampServicePort.eliminarBootcamp(bootcampId)
+                .then(ServerResponse.noContent().build())
+                .onErrorResume(e ->
+                        ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                .bodyValue(e.getMessage())
+                );
+    }
+
     private int parseQueryParam(ServerRequest request, String name, int defaultValue) {
         return request.queryParam(name)
                 .map(Integer::parseInt)

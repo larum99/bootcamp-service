@@ -3,6 +3,7 @@ package com.onclass.bootcamp.application.config;
 import com.onclass.bootcamp.domain.api.BootcampServicePort;
 import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
 import com.onclass.bootcamp.domain.spi.CapacidadClientPort;
+import com.onclass.bootcamp.domain.spi.TecnologiaClientPort;
 import com.onclass.bootcamp.domain.usecase.BootcampUseCase;
 import com.onclass.bootcamp.infrastructure.adapters.persistence.BootcampPersistenceAdapter;
 import com.onclass.bootcamp.infrastructure.adapters.persistence.mapper.BootcampEntityMapper;
@@ -24,8 +25,9 @@ public class UseCasesConfig {
     @Bean
     public BootcampServicePort bootcampServicePort(
             BootcampPersistencePort bootcampPersistencePort,
-            CapacidadClientPort capacidadClientPort
+            CapacidadClientPort capacidadClientPort,
+            TecnologiaClientPort tecnologiaClientPort
     ) {
-        return new BootcampUseCase(bootcampPersistencePort, capacidadClientPort);
+        return new BootcampUseCase(bootcampPersistencePort, capacidadClientPort, tecnologiaClientPort);
     }
 }

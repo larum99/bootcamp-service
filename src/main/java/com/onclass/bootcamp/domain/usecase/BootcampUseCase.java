@@ -9,6 +9,7 @@ import com.onclass.bootcamp.domain.model.Bootcamp;
 import com.onclass.bootcamp.domain.model.BootcampList;
 import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
 import com.onclass.bootcamp.domain.spi.CapacidadClientPort;
+import com.onclass.bootcamp.domain.spi.TecnologiaClientPort;
 import com.onclass.bootcamp.domain.utils.PageResult;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -20,11 +21,13 @@ public class BootcampUseCase implements BootcampServicePort {
 
     private final BootcampPersistencePort bootcampPersistencePort;
     private final CapacidadClientPort capacidadClientPort;
+    private final TecnologiaClientPort tecnologiaClientPort;
 
     public BootcampUseCase(BootcampPersistencePort bootcampPersistencePort,
-                           CapacidadClientPort capacidadClientPort) {
+                           CapacidadClientPort capacidadClientPort, TecnologiaClientPort tecnologiaClientPort) {
         this.bootcampPersistencePort = bootcampPersistencePort;
         this.capacidadClientPort = capacidadClientPort;
+        this.tecnologiaClientPort = tecnologiaClientPort;
     }
 
     @Override
@@ -92,6 +95,26 @@ public class BootcampUseCase implements BootcampServicePort {
             default:
                 return Mono.error(new BusinessException(TechnicalMessage.INVALID_PARAMETERS));
         }
+    }
+
+    @Override
+    public Mono<Void> eliminarBootcamp(Long bootcampId) {
+        return bootcampPersistencePort.findById(bootcampId)
+                .switchIfEmpty(Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_NOT_FOUND)))
+                .flatMap(bootcamp ->
+                        capacidadClientPort.eliminarCapacidadesPorBootcamp(bootcampId)
+                                .flatMapMany(capacidadesEliminadas -> {
+                                    if (capacidadesEliminadas.isEmpty()) {
+                                        return Mono.empty();
+                                    }
+                                    return tecnologiaClientPort.eliminarTecnologiasPorCapacidades(capacidadesEliminadas);
+                                })
+                                .then(
+                                        bootcampPersistencePort.deleteById(bootcampId)
+                                )
+                                .onErrorMap(error -> new BusinessException(TechnicalMessage.BOOTCAMP_DELETE_FAILED))
+                )
+                .then();
     }
 
     private Mono<PageResult<BootcampList>> sortByName(BootcampCriteria criteria) {

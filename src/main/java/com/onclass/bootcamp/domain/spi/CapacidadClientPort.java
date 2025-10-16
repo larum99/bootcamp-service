@@ -9,4 +9,5 @@ import java.util.List;
 public interface CapacidadClientPort {
     Mono<Void> associateBootcampWithCapacidades(Long bootcampId, List<Long> capacidadesIds);
     Flux<CapacidadSummary> findCapacidadesByBootcampId(Long bootcampId);
+    Mono<List<Long>> eliminarCapacidadesPorBootcamp(Long bootcampId);
 }

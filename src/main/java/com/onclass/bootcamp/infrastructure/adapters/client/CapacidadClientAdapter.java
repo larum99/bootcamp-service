@@ -51,4 +51,16 @@ public class CapacidadClientAdapter implements CapacidadClientPort {
                 .bodyToFlux(CapacidadSummaryDTO.class)
                 .map(dto -> new CapacidadSummary(dto.id(), dto.nombre()));
     }
+
+    @Override
+    public Mono<List<Long>> eliminarCapacidadesPorBootcamp(Long bootcampId) {
+        return webClient.delete()
+                .uri(uriBuilder -> uriBuilder
+                        .path("/capacidad-bootcamps/{bootcampId}")
+                        .build(bootcampId))
+                .header(Constants.X_MESSAGE_ID, "12345")
+                .retrieve()
+                .bodyToFlux(Long.class)
+                .collectList();
+    }
 }
