@@ -6,6 +6,7 @@ import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampCapacidadDTO;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadSummaryDTO;
 import com.onclass.bootcamp.infrastructure.entrypoints.util.Constants;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -62,5 +63,31 @@ public class CapacidadClientAdapter implements CapacidadClientPort {
                 .retrieve()
                 .bodyToFlux(Long.class)
                 .collectList();
+    }
+
+    @Override
+    public Mono<Integer> countBootcampsByCapacidadId(Long capacidadId) {
+        return webClient.get()
+                // Asume un endpoint como: GET /capacidades/{id}/bootcamps/count
+                .uri(uriBuilder -> uriBuilder
+                        .path("/capacidades/{capacidadId}/bootcamps/count")
+                        .build(capacidadId))
+                .header(Constants.X_MESSAGE_ID, "12345")
+                .retrieve()
+                .bodyToMono(Integer.class);
+    }
+
+
+    @Override
+    public Mono<Void> eliminarCapacidadesPorIds(List<Long> capacidadIds) {
+        // Usamos .method(HttpMethod.DELETE) para poder enviar un cuerpo en la petición DELETE
+        return webClient.method(HttpMethod.DELETE)
+                // Asume un endpoint como: DELETE /capacidades
+                .uri("/capacidades")
+                .header(Constants.X_MESSAGE_ID, "12345")
+                // Enviamos la lista de IDs en el cuerpo de la petición
+                .bodyValue(capacidadIds)
+                .retrieve()
+                .bodyToMono(Void.class);
     }
 }

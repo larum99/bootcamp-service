@@ -10,7 +10,10 @@ import com.onclass.bootcamp.domain.model.BootcampList;
 import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
 import com.onclass.bootcamp.domain.spi.CapacidadClientPort;
 import com.onclass.bootcamp.domain.spi.TecnologiaClientPort;
+import com.onclass.bootcamp.domain.utils.CapacidadSummary;
 import com.onclass.bootcamp.domain.utils.PageResult;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -18,6 +21,7 @@ import java.time.LocalDate;
 import java.util.*;
 
 public class BootcampUseCase implements BootcampServicePort {
+    private static final Logger log = LoggerFactory.getLogger(BootcampUseCase.class);
 
     private final BootcampPersistencePort bootcampPersistencePort;
     private final CapacidadClientPort capacidadClientPort;
@@ -99,22 +103,85 @@ public class BootcampUseCase implements BootcampServicePort {
 
     @Override
     public Mono<Void> eliminarBootcamp(Long bootcampId) {
+        Logger log = LoggerFactory.getLogger(BootcampUseCase.class);
+
         return bootcampPersistencePort.findById(bootcampId)
                 .switchIfEmpty(Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_NOT_FOUND)))
-                .flatMap(bootcamp ->
-                        capacidadClientPort.eliminarCapacidadesPorBootcamp(bootcampId)
-                                .flatMapMany(capacidadesEliminadas -> {
-                                    if (capacidadesEliminadas.isEmpty()) {
-                                        return Mono.empty();
-                                    }
-                                    return tecnologiaClientPort.eliminarTecnologiasPorCapacidades(capacidadesEliminadas);
-                                })
-                                .then(
-                                        bootcampPersistencePort.deleteById(bootcampId)
-                                )
-                                .onErrorMap(error -> new BusinessException(TechnicalMessage.BOOTCAMP_DELETE_FAILED))
-                )
+                .flatMap(bootcamp -> {
+                    Mono<List<Long>> capacidadesDelBootcampIdsMono = capacidadClientPort.findCapacidadesByBootcampId(bootcampId)
+                            .map(CapacidadSummary::getId)
+                            .collectList()
+                            .cache();
+
+                    return capacidadesDelBootcampIdsMono.flatMap(capacidadesDelBootcampIds -> {
+                        if (capacidadesDelBootcampIds.isEmpty()) {
+                            return bootcampPersistencePort.deleteById(bootcampId);
+                        }
+
+                        return capacidadClientPort.eliminarCapacidadesPorBootcamp(bootcampId)
+                                .then(capacidadesDelBootcampIdsMono)
+                                .flatMap(originalIds -> {
+                                    Mono<List<Long>> capacidadesHuerfanasIdsMono = Flux.fromIterable(originalIds)
+                                            .filterWhen(capacidadId ->
+                                                    capacidadClientPort.countBootcampsByCapacidadId(capacidadId)
+                                                            .map(count -> count == 0)
+                                            )
+                                            .collectList()
+                                            .doOnNext(ids -> log.info(">> DEBUG: Capacidades huérfanas encontradas: {}", ids))
+                                            .cache();
+
+                                    return capacidadesHuerfanasIdsMono.flatMap(capacidadesHuerfanasIds -> {
+                                        if (capacidadesHuerfanasIds.isEmpty()) {
+                                            log.info(">> DEBUG: No hay capacidades huérfanas. Borrando solo el bootcamp.");
+                                            return bootcampPersistencePort.deleteById(bootcampId);
+                                        }
+
+                                        // ========== CAMBIO FUNDAMENTAL AQUÍ ==========
+
+                                        // 1. PRIMERO, obtenemos la lista de tecnologías que VAMOS a afectar.
+                                        return tecnologiaClientPort.findTecnologiaIdsByCapacidades(capacidadesHuerfanasIds)
+                                                .collectList()
+                                                .doOnNext(ids -> log.info(">> DEBUG: Tecnologías afectadas (antes de borrar): {}", ids))
+                                                .flatMap(tecnologiasAfectadasIds -> {
+                                                    // 2. AHORA definimos las operaciones de borrado.
+                                                    Mono<Void> eliminarRelacionesTecnologia = tecnologiaClientPort.eliminarTecnologiasPorCapacidades(capacidadesHuerfanasIds)
+                                                            .doOnSuccess(v -> log.info(">> DEBUG: Petición para eliminar relaciones capacidad-tecnología completada."));
+                                                    Mono<Void> eliminarCapacidadesHuerfanas = capacidadClientPort.eliminarCapacidadesPorIds(capacidadesHuerfanasIds)
+                                                            .doOnSuccess(v -> log.info(">> DEBUG: Petición para eliminar capacidades huérfanas completada."));
+
+                                                    // 3. Ejecutamos los borrados.
+                                                    return Mono.when(eliminarRelacionesTecnologia, eliminarCapacidadesHuerfanas)
+                                                            .then(
+                                                                    // 4. Usamos la lista 'tecnologiasAfectadasIds' que capturamos ANTES de borrar.
+                                                                    Flux.fromIterable(tecnologiasAfectadasIds)
+                                                                            .concatMap(tecnologiaId ->
+                                                                                    tecnologiaClientPort.countCapacidadesByTecnologiaId(tecnologiaId)
+                                                                                            .doOnNext(count -> log.info(">> DEBUG: Verificando tecnología ID {}. Conteo de capacidades asociadas: {}", tecnologiaId, count))
+                                                                                            .filter(count -> count == 0)
+                                                                                            .flatMap(count -> {
+                                                                                                log.info(">> DEBUG: La tecnología ID {} será eliminada.", tecnologiaId);
+                                                                                                return tecnologiaClientPort.eliminarTecnologiaPorId(tecnologiaId);
+                                                                                            })
+                                                                            )
+                                                                            .then()
+                                                            )
+                                                            .then(bootcampPersistencePort.deleteById(bootcampId));
+                                                });
+                                    });
+                                });
+                    });
+                })
                 .then();
+    }
+
+    /**
+     * Maneja rollback de manera compensatoria si algo falla.
+     */
+    private Mono<Void> rollbackEliminarBootcamp(List<Long> capacidadIds, Long bootcampId, Throwable error) {
+        return Mono.defer(() -> {
+            log.error("Error durante eliminación del bootcamp {}: {}", bootcampId, error.getMessage());
+            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_DELETE_FAILED));
+        });
     }
 
     private Mono<PageResult<BootcampList>> sortByName(BootcampCriteria criteria) {

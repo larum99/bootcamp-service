@@ -10,4 +10,6 @@ public interface CapacidadClientPort {
     Mono<Void> associateBootcampWithCapacidades(Long bootcampId, List<Long> capacidadesIds);
     Flux<CapacidadSummary> findCapacidadesByBootcampId(Long bootcampId);
     Mono<List<Long>> eliminarCapacidadesPorBootcamp(Long bootcampId);
+    Mono<Integer> countBootcampsByCapacidadId(Long capacidadId);
+    Mono<Void> eliminarCapacidadesPorIds(List<Long> capacidadIds);
 }
