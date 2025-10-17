@@ -136,23 +136,17 @@ public class BootcampUseCase implements BootcampServicePort {
                                             return bootcampPersistencePort.deleteById(bootcampId);
                                         }
 
-                                        // ========== CAMBIO FUNDAMENTAL AQUÍ ==========
-
-                                        // 1. PRIMERO, obtenemos la lista de tecnologías que VAMOS a afectar.
                                         return tecnologiaClientPort.findTecnologiaIdsByCapacidades(capacidadesHuerfanasIds)
                                                 .collectList()
                                                 .doOnNext(ids -> log.info(">> DEBUG: Tecnologías afectadas (antes de borrar): {}", ids))
                                                 .flatMap(tecnologiasAfectadasIds -> {
-                                                    // 2. AHORA definimos las operaciones de borrado.
                                                     Mono<Void> eliminarRelacionesTecnologia = tecnologiaClientPort.eliminarTecnologiasPorCapacidades(capacidadesHuerfanasIds)
                                                             .doOnSuccess(v -> log.info(">> DEBUG: Petición para eliminar relaciones capacidad-tecnología completada."));
                                                     Mono<Void> eliminarCapacidadesHuerfanas = capacidadClientPort.eliminarCapacidadesPorIds(capacidadesHuerfanasIds)
                                                             .doOnSuccess(v -> log.info(">> DEBUG: Petición para eliminar capacidades huérfanas completada."));
 
-                                                    // 3. Ejecutamos los borrados.
                                                     return Mono.when(eliminarRelacionesTecnologia, eliminarCapacidadesHuerfanas)
                                                             .then(
-                                                                    // 4. Usamos la lista 'tecnologiasAfectadasIds' que capturamos ANTES de borrar.
                                                                     Flux.fromIterable(tecnologiasAfectadasIds)
                                                                             .concatMap(tecnologiaId ->
                                                                                     tecnologiaClientPort.countCapacidadesByTecnologiaId(tecnologiaId)
@@ -174,9 +168,6 @@ public class BootcampUseCase implements BootcampServicePort {
                 .then();
     }
 
-    /**
-     * Maneja rollback de manera compensatoria si algo falla.
-     */
     private Mono<Void> rollbackEliminarBootcamp(List<Long> capacidadIds, Long bootcampId, Throwable error) {
         return Mono.defer(() -> {
             log.error("Error durante eliminación del bootcamp {}: {}", bootcampId, error.getMessage());

@@ -68,7 +68,6 @@ public class CapacidadClientAdapter implements CapacidadClientPort {
     @Override
     public Mono<Integer> countBootcampsByCapacidadId(Long capacidadId) {
         return webClient.get()
-                // Asume un endpoint como: GET /capacidades/{id}/bootcamps/count
                 .uri(uriBuilder -> uriBuilder
                         .path("/capacidades/{capacidadId}/bootcamps/count")
                         .build(capacidadId))
@@ -80,12 +79,9 @@ public class CapacidadClientAdapter implements CapacidadClientPort {
 
     @Override
     public Mono<Void> eliminarCapacidadesPorIds(List<Long> capacidadIds) {
-        // Usamos .method(HttpMethod.DELETE) para poder enviar un cuerpo en la petición DELETE
         return webClient.method(HttpMethod.DELETE)
-                // Asume un endpoint como: DELETE /capacidades
                 .uri("/capacidades")
                 .header(Constants.X_MESSAGE_ID, "12345")
-                // Enviamos la lista de IDs en el cuerpo de la petición
                 .bodyValue(capacidadIds)
                 .retrieve()
                 .bodyToMono(Void.class);

@@ -24,9 +24,6 @@ public class TecnologiaClientAdapter implements TecnologiaClientPort {
                 .build();
     }
 
-    /**
-     * Elimina las relaciones capacidad-tecnología según los IDs de capacidad.
-     */
     @Override
     public Mono<Void> eliminarTecnologiasPorCapacidades(List<Long> capacidadIds) {
         return webClient.method(HttpMethod.DELETE)
@@ -37,9 +34,6 @@ public class TecnologiaClientAdapter implements TecnologiaClientPort {
                 .bodyToMono(Void.class);
     }
 
-    /**
-     * Obtiene los IDs de tecnologías asociadas a una lista de capacidades.
-     */
     @Override
     public Flux<Long> findTecnologiaIdsByCapacidades(List<Long> capacidadIds) {
         return webClient.post()
@@ -50,9 +44,6 @@ public class TecnologiaClientAdapter implements TecnologiaClientPort {
                 .bodyToFlux(Long.class);
     }
 
-    /**
-     * Cuenta cuántas capacidades están asociadas a una tecnología específica.
-     */
     @Override
     public Mono<Integer> countCapacidadesByTecnologiaId(Long tecnologiaId) {
         return webClient.get()
@@ -63,9 +54,6 @@ public class TecnologiaClientAdapter implements TecnologiaClientPort {
                 .defaultIfEmpty(0);
     }
 
-    /**
-     * Elimina definitivamente una tecnología por su ID.
-     */
     @Override
     public Mono<Void> eliminarTecnologiaPorId(Long tecnologiaId) {
         return webClient.delete()
