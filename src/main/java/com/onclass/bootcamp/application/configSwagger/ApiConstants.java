@@ -30,6 +30,8 @@ public class ApiConstants {
     public static final String HTTP_BAD_REQUEST = "400";
     public static final String HTTP_INTERNAL_ERROR = "500";
     public static final String HTTP_OK = "200";
+    public static final String HTTP_NO_CONTENT = "204";
+    public static final String HTTP_NOT_FOUND = "404";
 
     // Parámetros de consulta para GET paginado
     public static final String PARAM_PAGE = "page";

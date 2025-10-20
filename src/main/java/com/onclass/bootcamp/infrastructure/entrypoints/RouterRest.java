@@ -1,5 +1,6 @@
 package com.onclass.bootcamp.infrastructure.entrypoints;
 
+import com.onclass.bootcamp.application.configSwagger.BootcampApiDeleteDoc;
 import com.onclass.bootcamp.application.configSwagger.BootcampApiDoc;
 import com.onclass.bootcamp.application.configSwagger.BootcampGetApiDoc;
 import com.onclass.bootcamp.infrastructure.entrypoints.handler.BootcampHandlerImpl;
@@ -28,7 +29,7 @@ public class RouterRest {
     }
 
     @Bean
-    //@BootcampApiDoc
+    @BootcampApiDeleteDoc
     public RouterFunction<ServerResponse> deleteBootcampRoute(BootcampHandlerImpl handler) {
         return route(DELETE(Constants.BOOTCAMP_PATH + "/{id}"), handler::deleteBootcamp);
     }
