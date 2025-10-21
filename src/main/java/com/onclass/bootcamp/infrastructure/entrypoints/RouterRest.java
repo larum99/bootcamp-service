@@ -33,4 +33,10 @@ public class RouterRest {
     public RouterFunction<ServerResponse> deleteBootcampRoute(BootcampHandlerImpl handler) {
         return route(DELETE(Constants.BOOTCAMP_PATH + "/{id}"), handler::deleteBootcamp);
     }
+
+    @Bean
+    public RouterFunction<ServerResponse> getBootcampByIdRoute(BootcampHandlerImpl handler) {
+        return route(GET(Constants.BOOTCAMP_PATH + "/{id}"), handler::getBootcampById);
+    }
+
 }

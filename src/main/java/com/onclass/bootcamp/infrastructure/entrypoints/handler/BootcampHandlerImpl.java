@@ -84,6 +84,14 @@ public class BootcampHandlerImpl {
                 );
     }
 
+    public Mono<ServerResponse> getBootcampById(ServerRequest request) {
+        Long id = Long.valueOf(request.pathVariable("id"));
+        return bootcampServicePort.obtenerBootcampPorId(id)
+                .flatMap(bootcamp ->
+                        ServerResponse.ok().bodyValue(bootcamp))
+                .switchIfEmpty(ServerResponse.notFound().build());
+    }
+
     private int parseQueryParam(ServerRequest request, String name, int defaultValue) {
         return request.queryParam(name)
                 .map(Integer::parseInt)

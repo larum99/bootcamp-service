@@ -168,11 +168,24 @@ public class BootcampUseCase implements BootcampServicePort {
                 .then();
     }
 
-    private Mono<Void> rollbackEliminarBootcamp(List<Long> capacidadIds, Long bootcampId, Throwable error) {
-        return Mono.defer(() -> {
-            log.error("Error durante eliminación del bootcamp {}: {}", bootcampId, error.getMessage());
-            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_DELETE_FAILED));
-        });
+    @Override
+    public Mono<BootcampList> obtenerBootcampPorId(Long id) {
+        return bootcampPersistencePort.findById(id)
+                .switchIfEmpty(Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_NOT_FOUND)))
+                .flatMap(bootcamp ->
+                        capacidadClientPort.findCapacidadesByBootcampId(bootcamp.id())
+                                .collectList()
+                                .map(capacidades ->
+                                        new BootcampList(
+                                                bootcamp.id(),
+                                                bootcamp.nombre(),
+                                                bootcamp.descripcion(),
+                                                bootcamp.fechaLanzamiento(),
+                                                bootcamp.duracion(),
+                                                capacidades
+                                        )
+                                )
+                );
     }
 
     private Mono<PageResult<BootcampList>> sortByName(BootcampCriteria criteria) {

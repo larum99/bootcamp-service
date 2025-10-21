@@ -11,4 +11,5 @@ public interface BootcampServicePort {
     Mono<Bootcamp> registrarBootcamp(Bootcamp bootcamp, String messageId);
     Mono<PageResult<BootcampList>> listarBootcamps(BootcampCriteria criteria);
     Mono<Void> eliminarBootcamp(Long bootcampId);
+    Mono<BootcampList> obtenerBootcampPorId(Long id);
 }
