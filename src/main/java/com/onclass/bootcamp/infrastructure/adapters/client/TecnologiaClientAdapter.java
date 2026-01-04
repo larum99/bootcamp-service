@@ -1,6 +1,7 @@
 package com.onclass.bootcamp.infrastructure.adapters.client;
 
 import com.onclass.bootcamp.domain.spi.TecnologiaClientPort;
+import com.onclass.bootcamp.infrastructure.adapters.util.ClientConstants;
 import com.onclass.bootcamp.infrastructure.entrypoints.util.Constants;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
@@ -18,7 +19,7 @@ public class TecnologiaClientAdapter implements TecnologiaClientPort {
     private final WebClient webClient;
 
     public TecnologiaClientAdapter(WebClient.Builder webClientBuilder,
-                                   @Value("${services.tecnologia.url}") String tecnologiaUrl) {
+                                   @Value(ClientConstants.SERVICES_TECNOLOGIA_URL_PROPERTY) String tecnologiaUrl) {
         this.webClient = webClientBuilder
                 .baseUrl(tecnologiaUrl)
                 .build();
@@ -27,8 +28,8 @@ public class TecnologiaClientAdapter implements TecnologiaClientPort {
     @Override
     public Mono<Void> eliminarTecnologiasPorCapacidades(List<Long> capacidadIds) {
         return webClient.method(HttpMethod.DELETE)
-                .uri("/capacidad-tecnologias/by-capacidades")
-                .header(Constants.X_MESSAGE_ID, "12345")
+                .uri(ClientConstants.CAPACIDAD_TECNOLOGIAS_DELETE_BY_CAPACIDADES_ENDPOINT)
+                .header(Constants.X_MESSAGE_ID, ClientConstants.MESSAGE_ID_VALUE)
                 .body(BodyInserters.fromValue(capacidadIds))
                 .retrieve()
                 .bodyToMono(Void.class);
@@ -37,8 +38,8 @@ public class TecnologiaClientAdapter implements TecnologiaClientPort {
     @Override
     public Flux<Long> findTecnologiaIdsByCapacidades(List<Long> capacidadIds) {
         return webClient.post()
-                .uri("/capacidad-tecnologias/tecnologias/by-capacidades")
-                .header(Constants.X_MESSAGE_ID, "12345")
+                .uri(ClientConstants.CAPACIDAD_TECNOLOGIAS_BY_CAPACIDADES_ENDPOINT)
+                .header(Constants.X_MESSAGE_ID, ClientConstants.MESSAGE_ID_VALUE)
                 .body(BodyInserters.fromValue(capacidadIds))
                 .retrieve()
                 .bodyToFlux(Long.class);
@@ -47,8 +48,8 @@ public class TecnologiaClientAdapter implements TecnologiaClientPort {
     @Override
     public Mono<Integer> countCapacidadesByTecnologiaId(Long tecnologiaId) {
         return webClient.get()
-                .uri("/capacidad-tecnologias/count/by-tecnologia/{id}", tecnologiaId)
-                .header(Constants.X_MESSAGE_ID, "12345")
+                .uri(ClientConstants.CAPACIDAD_TECNOLOGIAS_COUNT_BY_TECNOLOGIA_ENDPOINT, tecnologiaId)
+                .header(Constants.X_MESSAGE_ID, ClientConstants.MESSAGE_ID_VALUE)
                 .retrieve()
                 .bodyToMono(Integer.class)
                 .defaultIfEmpty(0);
@@ -57,8 +58,8 @@ public class TecnologiaClientAdapter implements TecnologiaClientPort {
     @Override
     public Mono<Void> eliminarTecnologiaPorId(Long tecnologiaId) {
         return webClient.delete()
-                .uri("/tecnologias/{id}", tecnologiaId)
-                .header(Constants.X_MESSAGE_ID, "12345")
+                .uri(ClientConstants.TECNOLOGIAS_DELETE_BY_ID_ENDPOINT, tecnologiaId)
+                .header(Constants.X_MESSAGE_ID, ClientConstants.MESSAGE_ID_VALUE)
                 .retrieve()
                 .bodyToMono(Void.class);
     }

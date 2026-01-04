@@ -19,7 +19,7 @@ import java.lang.annotation.RetentionPolicy;
 @RouterOperation(
         path = ApiConstants.PATH_BOOTCAMP,
         beanClass = BootcampHandlerImpl.class,
-        beanMethod = "createBootcamp",
+        beanMethod = ApiExamples.CREATE_BOOTCAMP_METHOD,
         operation = @Operation(
                 operationId = ApiConstants.CREATE_BOOTCAMP_OPERATION_ID,
                 summary = ApiConstants.CREATE_BOOTCAMP_SUMMARY,
@@ -30,7 +30,7 @@ import java.lang.annotation.RetentionPolicy;
                                 schema = @Schema(implementation = BootcampDTO.class),
                                 examples = {
                                         @ExampleObject(
-                                                name = "Ejemplo Bootcamp",
+                                                name = ApiExamples.EXAMPLE_BOOTCAMP_NAME,
                                                 value = ApiExamples.BOOTCAMP_DTO_JSON
                                         )
                                 }

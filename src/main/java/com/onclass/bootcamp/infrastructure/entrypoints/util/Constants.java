@@ -7,5 +7,8 @@ public class Constants {
     public static final String X_MESSAGE_ID = "x-message-id";
     public static final String BOOTCAMP_ERROR = "Error en Capacidad - [ERROR]";
     public static final String BOOTCAMP_PATH = "/bootcamps";
+    
+    // Router paths
+    public static final String BOOTCAMP_ID_PATH = "/{id}";
 }
 

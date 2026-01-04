@@ -15,11 +15,11 @@ import java.lang.annotation.RetentionPolicy;
 @RouterOperation(
         path = Constants.BOOTCAMP_PATH,
         beanClass = BootcampHandlerImpl.class,
-        beanMethod = "getBootcamps",
+        beanMethod = ApiExamples.GET_BOOTCAMPS_METHOD,
         operation = @Operation(
-                operationId = "getBootcamps",
-                summary = "Obtener listado de bootcamps",
-                description = "Obtiene todos los bootcamps paginados. Se pueden incluir parámetros opcionales de paginación y ordenamiento.",
+                operationId = ApiExamples.GET_BOOTCAMPS_OPERATION_ID,
+                summary = ApiExamples.GET_BOOTCAMPS_SUMMARY,
+                description = ApiExamples.GET_BOOTCAMPS_DESCRIPTION,
                 parameters = {
                         @Parameter(
                                 name = ApiConstants.HEADER_X_MESSAGE_ID,

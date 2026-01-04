@@ -21,13 +21,15 @@ public enum TechnicalMessage {
     BOOTCAMP_MIN_CAPACIDADES("400-10", "El bootcamp debe tener al menos 1 capacidad asociada", "capacidades"),
     BOOTCAMP_MAX_CAPACIDADES("400-11", "El bootcamp no puede tener más de 4 capacidades", "capacidades"),
     BOOTCAMP_CAPACIDADES_DUPLICADAS("400-12", "El bootcamp no puede tener capacidades repetidas", "capacidades"),
+    CAPACIDAD_NOT_FOUND("400-13", "Una o más capacidades no existen", "capacidades"),
 
     // ======== Mensajes de eliminación ========
     BOOTCAMP_NOT_FOUND("404", "El bootcamp no existe", "bootcampId"),
     BOOTCAMP_DELETE_FAILED("500-1", "No se pudo eliminar el bootcamp. Intente nuevamente", "bootcampId"),
 
     // ======== Mensaje de éxito ========
-    BOOTCAMP_CREATED("201", "Bootcamp creado exitosamente", "");
+    BOOTCAMP_CREATED("201", "Bootcamp creado exitosamente", ""),
+    BOOTCAMP_DELETED("200", "Bootcamp eliminado exitosamente", "");
 
     private final String code;
     private final String description;

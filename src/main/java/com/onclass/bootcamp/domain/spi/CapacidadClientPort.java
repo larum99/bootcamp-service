@@ -12,4 +12,5 @@ public interface CapacidadClientPort {
     Mono<List<Long>> eliminarCapacidadesPorBootcamp(Long bootcampId);
     Mono<Integer> countBootcampsByCapacidadId(Long capacidadId);
     Mono<Void> eliminarCapacidadesPorIds(List<Long> capacidadIds);
+    Mono<Boolean> validateCapacidadesExist(List<Long> capacidadesIds);
 }

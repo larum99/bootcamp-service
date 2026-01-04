@@ -8,12 +8,12 @@ import com.onclass.bootcamp.domain.exceptions.BusinessException;
 import com.onclass.bootcamp.domain.model.Bootcamp;
 import com.onclass.bootcamp.domain.model.BootcampList;
 import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
+import com.onclass.bootcamp.domain.spi.BootcampReporteClientPort;
 import com.onclass.bootcamp.domain.spi.CapacidadClientPort;
 import com.onclass.bootcamp.domain.spi.TecnologiaClientPort;
 import com.onclass.bootcamp.domain.utils.CapacidadSummary;
 import com.onclass.bootcamp.domain.utils.PageResult;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampReporteDTO;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -21,70 +21,37 @@ import java.time.LocalDate;
 import java.util.*;
 
 public class BootcampUseCase implements BootcampServicePort {
-    private static final Logger log = LoggerFactory.getLogger(BootcampUseCase.class);
 
     private final BootcampPersistencePort bootcampPersistencePort;
     private final CapacidadClientPort capacidadClientPort;
     private final TecnologiaClientPort tecnologiaClientPort;
+    private final BootcampReporteClientPort bootcampReporteClientPort;
+
 
     public BootcampUseCase(BootcampPersistencePort bootcampPersistencePort,
-                           CapacidadClientPort capacidadClientPort, TecnologiaClientPort tecnologiaClientPort) {
+                           CapacidadClientPort capacidadClientPort,
+                           TecnologiaClientPort tecnologiaClientPort,
+                           BootcampReporteClientPort bootcampReporteClientPort) {
         this.bootcampPersistencePort = bootcampPersistencePort;
         this.capacidadClientPort = capacidadClientPort;
         this.tecnologiaClientPort = tecnologiaClientPort;
+        this.bootcampReporteClientPort = bootcampReporteClientPort;
     }
+
 
     @Override
     public Mono<Bootcamp> registrarBootcamp(Bootcamp bootcamp, String messageId) {
-        if (bootcamp.nombre() == null || bootcamp.nombre().isBlank()) {
-            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_NOMBRE_REQUIRED));
-        }
-        if (bootcamp.nombre().length() > Constants.MAX_NOMBRE_BOOTCAMP) {
-            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_NOMBRE_TOO_LONG));
-        }
-        if (bootcamp.descripcion() == null || bootcamp.descripcion().isBlank()) {
-            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_DESCRIPCION_REQUIRED));
-        }
-        if (bootcamp.descripcion().length() > Constants.MAX_DESCRIPCION_BOOTCAMP) {
-            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_DESCRIPCION_TOO_LONG));
-        }
-        if (bootcamp.fechaLanzamiento() == null) {
-            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_FECHA_REQUIRED));
-        }
-        if (bootcamp.fechaLanzamiento().isBefore(LocalDate.now())) {
-            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_FECHA_INVALID));
-        }
-        if (bootcamp.duracion() == null || bootcamp.duracion() <= 0) {
-            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_DURACION_REQUIRED));
-        }
-
-        List<Long> capacidades = bootcamp.capacidades();
-        if (capacidades == null || capacidades.size() < Constants.MIN_CAPACIDADES) {
-            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_MIN_CAPACIDADES));
-        }
-        if (capacidades.size() > Constants.MAX_CAPACIDADES) {
-            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_MAX_CAPACIDADES));
-        }
-
-        Set<Long> set = new HashSet<>(capacidades);
-        if (set.size() != capacidades.size()) {
-            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_CAPACIDADES_DUPLICADAS));
-        }
-
-        return bootcampPersistencePort.existByNombre(bootcamp.nombre())
-                .flatMap(exists -> {
-                    if (exists) {
-                        return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_ALREADY_EXISTS));
-                    }
-
-                    return bootcampPersistencePort.saveBootcamp(bootcamp)
-                            .flatMap(saved ->
-                                    capacidadClientPort
-                                            .associateBootcampWithCapacidades(saved.id(), capacidades)
-                                            .thenReturn(saved)
-                            );
-                });
+        return validarBootcamp(bootcamp)
+                .then(Mono.defer(() -> 
+                        bootcampPersistencePort.existByNombre(bootcamp.nombre())
+                                .flatMap(exists -> {
+                                    if (exists) {
+                                        return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_ALREADY_EXISTS));
+                                    }
+                                    return procesarRegistroBootcamp(bootcamp);
+                                })));
     }
+
 
     @Override
     public Mono<PageResult<BootcampList>> listarBootcamps(BootcampCriteria criteria) {
@@ -103,69 +70,9 @@ public class BootcampUseCase implements BootcampServicePort {
 
     @Override
     public Mono<Void> eliminarBootcamp(Long bootcampId) {
-        Logger log = LoggerFactory.getLogger(BootcampUseCase.class);
-
         return bootcampPersistencePort.findById(bootcampId)
                 .switchIfEmpty(Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_NOT_FOUND)))
-                .flatMap(bootcamp -> {
-                    Mono<List<Long>> capacidadesDelBootcampIdsMono = capacidadClientPort.findCapacidadesByBootcampId(bootcampId)
-                            .map(CapacidadSummary::getId)
-                            .collectList()
-                            .cache();
-
-                    return capacidadesDelBootcampIdsMono.flatMap(capacidadesDelBootcampIds -> {
-                        if (capacidadesDelBootcampIds.isEmpty()) {
-                            return bootcampPersistencePort.deleteById(bootcampId);
-                        }
-
-                        return capacidadClientPort.eliminarCapacidadesPorBootcamp(bootcampId)
-                                .then(capacidadesDelBootcampIdsMono)
-                                .flatMap(originalIds -> {
-                                    Mono<List<Long>> capacidadesHuerfanasIdsMono = Flux.fromIterable(originalIds)
-                                            .filterWhen(capacidadId ->
-                                                    capacidadClientPort.countBootcampsByCapacidadId(capacidadId)
-                                                            .map(count -> count == 0)
-                                            )
-                                            .collectList()
-                                            .doOnNext(ids -> log.info(">> DEBUG: Capacidades huérfanas encontradas: {}", ids))
-                                            .cache();
-
-                                    return capacidadesHuerfanasIdsMono.flatMap(capacidadesHuerfanasIds -> {
-                                        if (capacidadesHuerfanasIds.isEmpty()) {
-                                            log.info(">> DEBUG: No hay capacidades huérfanas. Borrando solo el bootcamp.");
-                                            return bootcampPersistencePort.deleteById(bootcampId);
-                                        }
-
-                                        return tecnologiaClientPort.findTecnologiaIdsByCapacidades(capacidadesHuerfanasIds)
-                                                .collectList()
-                                                .doOnNext(ids -> log.info(">> DEBUG: Tecnologías afectadas (antes de borrar): {}", ids))
-                                                .flatMap(tecnologiasAfectadasIds -> {
-                                                    Mono<Void> eliminarRelacionesTecnologia = tecnologiaClientPort.eliminarTecnologiasPorCapacidades(capacidadesHuerfanasIds)
-                                                            .doOnSuccess(v -> log.info(">> DEBUG: Petición para eliminar relaciones capacidad-tecnología completada."));
-                                                    Mono<Void> eliminarCapacidadesHuerfanas = capacidadClientPort.eliminarCapacidadesPorIds(capacidadesHuerfanasIds)
-                                                            .doOnSuccess(v -> log.info(">> DEBUG: Petición para eliminar capacidades huérfanas completada."));
-
-                                                    return Mono.when(eliminarRelacionesTecnologia, eliminarCapacidadesHuerfanas)
-                                                            .then(
-                                                                    Flux.fromIterable(tecnologiasAfectadasIds)
-                                                                            .concatMap(tecnologiaId ->
-                                                                                    tecnologiaClientPort.countCapacidadesByTecnologiaId(tecnologiaId)
-                                                                                            .doOnNext(count -> log.info(">> DEBUG: Verificando tecnología ID {}. Conteo de capacidades asociadas: {}", tecnologiaId, count))
-                                                                                            .filter(count -> count == 0)
-                                                                                            .flatMap(count -> {
-                                                                                                log.info(">> DEBUG: La tecnología ID {} será eliminada.", tecnologiaId);
-                                                                                                return tecnologiaClientPort.eliminarTecnologiaPorId(tecnologiaId);
-                                                                                            })
-                                                                            )
-                                                                            .then()
-                                                            )
-                                                            .then(bootcampPersistencePort.deleteById(bootcampId));
-                                                });
-                                    });
-                                });
-                    });
-                })
-                .then();
+                .flatMap(bootcamp -> procesarEliminacionBootcamp(bootcampId));
     }
 
     @Override
@@ -284,5 +191,134 @@ public class BootcampUseCase implements BootcampServicePort {
                             toIndex >= totalElements
                     ));
                 });
+    }
+
+    private Mono<Void> validarBootcamp(Bootcamp bootcamp) {
+        if (bootcamp.nombre() == null || bootcamp.nombre().isBlank()) {
+            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_NOMBRE_REQUIRED));
+        }
+        if (bootcamp.nombre().length() > Constants.MAX_NOMBRE_BOOTCAMP) {
+            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_NOMBRE_TOO_LONG));
+        }
+        if (bootcamp.descripcion() == null || bootcamp.descripcion().isBlank()) {
+            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_DESCRIPCION_REQUIRED));
+        }
+        if (bootcamp.descripcion().length() > Constants.MAX_DESCRIPCION_BOOTCAMP) {
+            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_DESCRIPCION_TOO_LONG));
+        }
+        if (bootcamp.fechaLanzamiento() == null) {
+            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_FECHA_REQUIRED));
+        }
+        if (bootcamp.fechaLanzamiento().isBefore(LocalDate.now())) {
+            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_FECHA_INVALID));
+        }
+        if (bootcamp.duracion() == null || bootcamp.duracion() <= 0) {
+            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_DURACION_REQUIRED));
+        }
+        return validarCapacidades(bootcamp.capacidades());
+    }
+
+    private Mono<Void> validarCapacidades(List<Long> capacidades) {
+        if (capacidades == null || capacidades.size() < Constants.MIN_CAPACIDADES) {
+            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_MIN_CAPACIDADES));
+        }
+        if (capacidades.size() > Constants.MAX_CAPACIDADES) {
+            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_MAX_CAPACIDADES));
+        }
+        Set<Long> set = new HashSet<>(capacidades);
+        if (set.size() != capacidades.size()) {
+            return Mono.error(new BusinessException(TechnicalMessage.BOOTCAMP_CAPACIDADES_DUPLICADAS));
+        }
+        return Mono.empty();
+    }
+
+    private Mono<Bootcamp> procesarRegistroBootcamp(Bootcamp bootcamp) {
+        List<Long> capacidades = bootcamp.capacidades();
+        return capacidadClientPort.validateCapacidadesExist(capacidades)
+                .flatMap(allExist -> {
+                    if (!allExist) {
+                        return Mono.error(new BusinessException(TechnicalMessage.CAPACIDAD_NOT_FOUND));
+                    }
+                    return bootcampPersistencePort.saveBootcamp(bootcamp)
+                            .flatMap(saved -> asociarCapacidadesYNotificar(saved, capacidades));
+                });
+    }
+
+    private Mono<Bootcamp> asociarCapacidadesYNotificar(Bootcamp bootcamp, List<Long> capacidades) {
+        return capacidadClientPort.associateBootcampWithCapacidades(bootcamp.id(), capacidades)
+                .then(tecnologiaClientPort.findTecnologiaIdsByCapacidades(capacidades)
+                        .collectList()
+                        .flatMap(tecnologias -> {
+                            BootcampReporteDTO reporteDTO = BootcampReporteDTO.builder()
+                                    .idBootcamp(bootcamp.id())
+                                    .nombre(bootcamp.nombre())
+                                    .descripcion(bootcamp.descripcion())
+                                    .fechaLanzamiento(bootcamp.fechaLanzamiento())
+                                    .duracion(bootcamp.duracion())
+                                    .cantidadCapacidades(capacidades.size())
+                                    .cantidadTecnologias(tecnologias.size())
+                                    .cantidadPersonasInscritas(0)
+                                    .build();
+                            return bootcampReporteClientPort.notificarNuevoBootcamp(reporteDTO)
+                                    .thenReturn(bootcamp);
+                        }));
+    }
+
+    private Mono<Void> procesarEliminacionBootcamp(Long bootcampId) {
+        Mono<List<Long>> capacidadesDelBootcampIdsMono = capacidadClientPort.findCapacidadesByBootcampId(bootcampId)
+                .map(CapacidadSummary::getId)
+                .collectList()
+                .cache();
+
+        return capacidadesDelBootcampIdsMono.flatMap(capacidadesDelBootcampIds -> {
+            if (capacidadesDelBootcampIds.isEmpty()) {
+                return bootcampPersistencePort.deleteById(bootcampId);
+            }
+            return eliminarCapacidadesYDependencias(bootcampId, capacidadesDelBootcampIdsMono);
+        });
+    }
+
+    private Mono<Void> eliminarCapacidadesYDependencias(Long bootcampId, Mono<List<Long>> capacidadesDelBootcampIdsMono) {
+        return capacidadClientPort.eliminarCapacidadesPorBootcamp(bootcampId)
+                .then(capacidadesDelBootcampIdsMono)
+                .flatMap(originalIds -> procesarCapacidadesHuerfanas(bootcampId, originalIds));
+    }
+
+    private Mono<Void> procesarCapacidadesHuerfanas(Long bootcampId, List<Long> originalIds) {
+        Mono<List<Long>> capacidadesHuerfanasIdsMono = Flux.fromIterable(originalIds)
+                .filterWhen(capacidadId ->
+                        capacidadClientPort.countBootcampsByCapacidadId(capacidadId)
+                                .map(count -> count == 0))
+                .collectList()
+                .cache();
+
+        return capacidadesHuerfanasIdsMono.flatMap(capacidadesHuerfanasIds -> {
+            if (capacidadesHuerfanasIds.isEmpty()) {
+                return bootcampPersistencePort.deleteById(bootcampId);
+            }
+            return eliminarTecnologiasYCapacidadesHuerfanas(bootcampId, capacidadesHuerfanasIds);
+        });
+    }
+
+    private Mono<Void> eliminarTecnologiasYCapacidadesHuerfanas(Long bootcampId, List<Long> capacidadesHuerfanasIds) {
+        return tecnologiaClientPort.findTecnologiaIdsByCapacidades(capacidadesHuerfanasIds)
+                .collectList()
+                .flatMap(tecnologiasAfectadasIds -> {
+                    Mono<Void> eliminarRelacionesTecnologia = tecnologiaClientPort.eliminarTecnologiasPorCapacidades(capacidadesHuerfanasIds);
+                    Mono<Void> eliminarCapacidadesHuerfanas = capacidadClientPort.eliminarCapacidadesPorIds(capacidadesHuerfanasIds);
+
+                    return Mono.when(eliminarRelacionesTecnologia, eliminarCapacidadesHuerfanas)
+                            .then(eliminarTecnologiasHuerfanas(tecnologiasAfectadasIds))
+                            .then(bootcampPersistencePort.deleteById(bootcampId));
+                });
+    }
+
+    private Mono<Void> eliminarTecnologiasHuerfanas(List<Long> tecnologiasAfectadasIds) {
+        return Flux.fromIterable(tecnologiasAfectadasIds)
+                .concatMap(tecnologiaId ->
+                        tecnologiaClientPort.countCapacidadesByTecnologiaId(tecnologiaId)
+                                .filter(count -> count == 0)
+                                .flatMap(count -> tecnologiaClientPort.eliminarTecnologiaPorId(tecnologiaId)))
+                .then();
     }
 }

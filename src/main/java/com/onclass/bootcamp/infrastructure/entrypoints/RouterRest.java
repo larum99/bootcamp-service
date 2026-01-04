@@ -31,12 +31,12 @@ public class RouterRest {
     @Bean
     @BootcampApiDeleteDoc
     public RouterFunction<ServerResponse> deleteBootcampRoute(BootcampHandlerImpl handler) {
-        return route(DELETE(Constants.BOOTCAMP_PATH + "/{id}"), handler::deleteBootcamp);
+        return route(DELETE(Constants.BOOTCAMP_PATH + Constants.BOOTCAMP_ID_PATH), handler::deleteBootcamp);
     }
 
     @Bean
     public RouterFunction<ServerResponse> getBootcampByIdRoute(BootcampHandlerImpl handler) {
-        return route(GET(Constants.BOOTCAMP_PATH + "/{id}"), handler::getBootcampById);
+        return route(GET(Constants.BOOTCAMP_PATH + Constants.BOOTCAMP_ID_PATH), handler::getBootcampById);
     }
 
 }

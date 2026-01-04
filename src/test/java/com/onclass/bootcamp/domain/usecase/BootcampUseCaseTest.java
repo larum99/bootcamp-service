@@ -5,10 +5,14 @@ import com.onclass.bootcamp.domain.criteria.BootcampCriteria;
 import com.onclass.bootcamp.domain.enums.TechnicalMessage;
 import com.onclass.bootcamp.domain.exceptions.BusinessException;
 import com.onclass.bootcamp.domain.model.Bootcamp;
+import com.onclass.bootcamp.domain.model.BootcampList;
 import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
+import com.onclass.bootcamp.domain.spi.BootcampReporteClientPort;
 import com.onclass.bootcamp.domain.spi.CapacidadClientPort;
+import com.onclass.bootcamp.domain.spi.TecnologiaClientPort;
 import com.onclass.bootcamp.domain.utils.PageResult;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampListDTO;
+import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampReporteDTO;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadSummaryDTO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -24,7 +28,7 @@ import java.util.List;
 import java.util.stream.LongStream;
 
 import static org.mockito.ArgumentMatchers.*;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 class BootcampUseCaseTest {
 
@@ -33,6 +37,12 @@ class BootcampUseCaseTest {
 
     @Mock
     private CapacidadClientPort capacidadClientPort;
+
+    @Mock
+    private TecnologiaClientPort tecnologiaClientPort;
+
+    @Mock
+    private BootcampReporteClientPort bootcampReporteClientPort;
 
     @InjectMocks
     private BootcampUseCase bootcampUseCase;
@@ -55,9 +65,12 @@ class BootcampUseCaseTest {
 
     @Test
     void registrarBootcamp_exito() {
-        when(bootcampPersistencePort.existByNombre(anyString())).thenReturn(Mono.just(false));
-        when(bootcampPersistencePort.saveBootcamp(any(Bootcamp.class))).thenReturn(Mono.just(bootcampValido));
-        when(capacidadClientPort.associateBootcampWithCapacidades(anyLong(), anyList())).thenReturn(Mono.empty());
+        doReturn(Mono.just(false)).when(bootcampPersistencePort).existByNombre(anyString());
+        doReturn(Mono.just(true)).when(capacidadClientPort).validateCapacidadesExist(anyList());
+        doReturn(Mono.just(bootcampValido)).when(bootcampPersistencePort).saveBootcamp(any(Bootcamp.class));
+        doReturn(Mono.empty()).when(capacidadClientPort).associateBootcampWithCapacidades(anyLong(), anyList());
+        doReturn(Flux.just(1L, 2L)).when(tecnologiaClientPort).findTecnologiaIdsByCapacidades(anyList());
+        doReturn(Mono.empty()).when(bootcampReporteClientPort).notificarNuevoBootcamp(any(BootcampReporteDTO.class));
 
         StepVerifier.create(bootcampUseCase.registrarBootcamp(bootcampValido, "msg-1"))
                 .expectNext(bootcampValido)
@@ -148,7 +161,7 @@ class BootcampUseCaseTest {
 
     @Test
     void registrarBootcamp_yaExisteNombre() {
-        when(bootcampPersistencePort.existByNombre(anyString())).thenReturn(Mono.just(true));
+        doReturn(Mono.just(true)).when(bootcampPersistencePort).existByNombre(anyString());
 
         StepVerifier.create(bootcampUseCase.registrarBootcamp(bootcampValido, "msg"))
                 .expectErrorMatches(e -> e instanceof BusinessException &&
@@ -159,20 +172,17 @@ class BootcampUseCaseTest {
     @Test
     void listarBootcamps_sortByName_exito() {
         // Arrange
-        BootcampListDTO b1 = new BootcampListDTO(1L, "Java", "desc", LocalDate.now(), 6, List.of());
-        BootcampListDTO b2 = new BootcampListDTO(2L, "Spring", "desc", LocalDate.now(), 6, List.of());
-        PageResult<BootcampListDTO> page = new PageResult<>(
+        BootcampList b1 = new BootcampList(1L, "Java", "desc", LocalDate.now(), 6, List.of());
+        BootcampList b2 = new BootcampList(2L, "Spring", "desc", LocalDate.now(), 6, List.of());
+        PageResult<BootcampList> page = new PageResult<>(
                 List.of(b1, b2),
                 2L, 1, 0, 10, true, true
         );
 
         CapacidadSummaryDTO capacidad = new CapacidadSummaryDTO(1L, "Java Avanzado", List.of());
 
-        when(bootcampPersistencePort.findAll(any(BootcampCriteria.class)))
-                .thenReturn(Mono.just(page));
-
-        when(capacidadClientPort.findCapacidadesByBootcampId(anyLong()))
-                .thenReturn(Flux.just(capacidad));
+        doReturn(Mono.just(page)).when(bootcampPersistencePort).findAll(any(BootcampCriteria.class));
+        doReturn(Flux.empty()).when(capacidadClientPort).findCapacidadesByBootcampId(anyLong());
 
         // Act & Assert
         StepVerifier.create(bootcampUseCase.listarBootcamps(new BootcampCriteria()))
@@ -186,10 +196,10 @@ class BootcampUseCaseTest {
     @Test
     void listarBootcamps_sortByCapacidadCount_exito() {
         // Arrange
-        BootcampListDTO b1 = new BootcampListDTO(1L, "Java", "desc", LocalDate.now().plusDays(5), 8, List.of());
-        BootcampListDTO b2 = new BootcampListDTO(2L, "Angular", "desc", LocalDate.now().plusDays(5), 8, List.of());
+        BootcampList b1 = new BootcampList(1L, "Java", "desc", LocalDate.now().plusDays(5), 8, List.of());
+        BootcampList b2 = new BootcampList(2L, "Angular", "desc", LocalDate.now().plusDays(5), 8, List.of());
 
-        PageResult<BootcampListDTO> page = new PageResult<>(
+        PageResult<BootcampList> page = new PageResult<>(
                 List.of(b1, b2),
                 2L, 1, 0, 10, true, true
         );
@@ -205,19 +215,15 @@ class BootcampUseCaseTest {
         CapacidadSummaryDTO capJava2 = new CapacidadSummaryDTO(2L, "Spring Boot", List.of());
         CapacidadSummaryDTO capAngular = new CapacidadSummaryDTO(3L, "Angular", List.of());
 
-        when(bootcampPersistencePort.findAll(any(BootcampCriteria.class)))
-                .thenReturn(Mono.just(page));
-
-        when(capacidadClientPort.findCapacidadesByBootcampId(eq(1L)))
-                .thenReturn(Flux.just(capJava1, capJava2));
-        when(capacidadClientPort.findCapacidadesByBootcampId(eq(2L)))
-                .thenReturn(Flux.just(capAngular));
+        doReturn(Mono.just(page)).when(bootcampPersistencePort).findAll(any(BootcampCriteria.class));
+        doReturn(Flux.empty()).when(capacidadClientPort).findCapacidadesByBootcampId(eq(1L));
+        doReturn(Flux.empty()).when(capacidadClientPort).findCapacidadesByBootcampId(eq(2L));
 
         // Act & Assert
         StepVerifier.create(bootcampUseCase.listarBootcamps(criteria))
                 .assertNext(result -> {
                     assert result.getContent().size() == 2;
-                    assert result.getContent().get(0).nombre().equals("Java"); // mayor cantidad de capacidades
+                    assert result.getContent().get(0).nombre().equals("Java");
                     assert result.getTotalElements() == 2;
                 })
                 .verifyComplete();

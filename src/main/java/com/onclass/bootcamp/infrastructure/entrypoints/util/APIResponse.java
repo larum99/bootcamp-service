@@ -18,5 +18,6 @@ public class APIResponse {
     private String message;
     private String identifier;
     private String date;
+    private Object data;
     private List<ErrorDTO> errors;
 }

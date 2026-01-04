@@ -13,13 +13,13 @@ import java.lang.annotation.RetentionPolicy;
 
 @Retention(RetentionPolicy.RUNTIME)
 @RouterOperation(
-        path = Constants.BOOTCAMP_PATH + "/{id}",
+        path = Constants.BOOTCAMP_PATH + ApiExamples.PATH_ID_SEGMENT,
         beanClass = BootcampHandlerImpl.class,
-        beanMethod = "deleteBootcamp",
+        beanMethod = ApiExamples.DELETE_BOOTCAMP_METHOD,
         operation = @Operation(
-                operationId = "deleteBootcamp",
-                summary = "Eliminar un bootcamp",
-                description = "Elimina un bootcamp por su identificador. La operación también elimina sus capacidades y tecnologías asociadas si no están relacionadas con otros bootcamps.",
+                operationId = ApiExamples.DELETE_BOOTCAMP_OPERATION_ID,
+                summary = ApiExamples.DELETE_BOOTCAMP_SUMMARY,
+                description = ApiExamples.DELETE_BOOTCAMP_DESCRIPTION,
                 parameters = {
                         @Parameter(
                                 name = ApiConstants.HEADER_X_MESSAGE_ID,
@@ -28,16 +28,16 @@ import java.lang.annotation.RetentionPolicy;
                                 required = true
                         ),
                         @Parameter(
-                                name = "id",
+                                name = ApiExamples.ID_PARAM_NAME,
                                 in = ParameterIn.PATH,
-                                description = "ID del bootcamp que se desea eliminar",
+                                description = ApiExamples.ID_PARAM_DESCRIPTION,
                                 required = true
                         )
                 },
                 responses = {
                         @ApiResponse(
                                 responseCode = ApiConstants.HTTP_NO_CONTENT,
-                                description = "Bootcamp eliminado exitosamente"
+                                description = ApiExamples.DELETE_SUCCESS_DESCRIPTION
                         ),
                         @ApiResponse(
                                 responseCode = ApiConstants.HTTP_BAD_REQUEST,
@@ -45,7 +45,7 @@ import java.lang.annotation.RetentionPolicy;
                         ),
                         @ApiResponse(
                                 responseCode = ApiConstants.HTTP_NOT_FOUND,
-                                description = "No se encontró el bootcamp con el ID especificado"
+                                description = ApiExamples.NOT_FOUND_DESCRIPTION
                         ),
                         @ApiResponse(
                                 responseCode = ApiConstants.HTTP_INTERNAL_ERROR,

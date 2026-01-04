@@ -2,6 +2,7 @@ package com.onclass.bootcamp.application.config;
 
 import com.onclass.bootcamp.domain.api.BootcampServicePort;
 import com.onclass.bootcamp.domain.spi.BootcampPersistencePort;
+import com.onclass.bootcamp.domain.spi.BootcampReporteClientPort;
 import com.onclass.bootcamp.domain.spi.CapacidadClientPort;
 import com.onclass.bootcamp.domain.spi.TecnologiaClientPort;
 import com.onclass.bootcamp.domain.usecase.BootcampUseCase;
@@ -26,8 +27,14 @@ public class UseCasesConfig {
     public BootcampServicePort bootcampServicePort(
             BootcampPersistencePort bootcampPersistencePort,
             CapacidadClientPort capacidadClientPort,
-            TecnologiaClientPort tecnologiaClientPort
+            TecnologiaClientPort tecnologiaClientPort,
+            BootcampReporteClientPort bootcampReporteClientPort
     ) {
-        return new BootcampUseCase(bootcampPersistencePort, capacidadClientPort, tecnologiaClientPort);
+        return new BootcampUseCase(
+                bootcampPersistencePort,
+                capacidadClientPort,
+                tecnologiaClientPort,
+                bootcampReporteClientPort
+        );
     }
 }

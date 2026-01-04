@@ -3,6 +3,7 @@ package com.onclass.bootcamp.infrastructure.adapters.persistence.repository.impl
 import com.onclass.bootcamp.domain.criteria.BootcampCriteria;
 import com.onclass.bootcamp.infrastructure.adapters.persistence.entity.BootcampEntity;
 import com.onclass.bootcamp.infrastructure.adapters.persistence.repository.CustomBootcampRepository;
+import com.onclass.bootcamp.infrastructure.adapters.util.RepositoryConstants;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
@@ -19,27 +20,24 @@ public class CustomBootcampRepositoryImpl implements CustomBootcampRepository {
 
     @Override
     public Flux<BootcampEntity> findAllByFilters(BootcampCriteria criteria) {
-        StringBuilder sql = new StringBuilder("""
-                SELECT b.id, b.nombre, b.descripcion, b.fecha_lanzamiento, b.duracion
-                FROM bootcamp b
-                """);
+        StringBuilder sql = new StringBuilder(RepositoryConstants.SELECT_BOOTCAMP_BASE_QUERY);
 
-        if ("nombre".equalsIgnoreCase(criteria.getSortBy())) {
-            sql.append(" ORDER BY b.nombre ")
+        if (RepositoryConstants.NOMBRE_SORT_FIELD.equalsIgnoreCase(criteria.getSortBy())) {
+            sql.append(RepositoryConstants.ORDER_BY_NOMBRE)
                     .append(getValidSortOrder(criteria.getSortOrder()));
         }
 
-        sql.append(" LIMIT ").append(criteria.getSize())
-                .append(" OFFSET ").append(criteria.getPage() * criteria.getSize());
+        sql.append(RepositoryConstants.LIMIT_CLAUSE).append(criteria.getSize())
+                .append(RepositoryConstants.OFFSET_CLAUSE).append(criteria.getPage() * criteria.getSize());
 
         return databaseClient.sql(sql.toString())
                 .map((row, metadata) -> {
                     BootcampEntity entity = new BootcampEntity();
-                    entity.setId(row.get("id", Long.class));
-                    entity.setNombre(row.get("nombre", String.class));
-                    entity.setDescripcion(row.get("descripcion", String.class));
-                    entity.setFechaLanzamiento(row.get("fecha_lanzamiento", java.time.LocalDate.class));
-                    entity.setDuracion(row.get("duracion", Integer.class));
+                    entity.setId(row.get(RepositoryConstants.ID_COLUMN, Long.class));
+                    entity.setNombre(row.get(RepositoryConstants.NOMBRE_COLUMN, String.class));
+                    entity.setDescripcion(row.get(RepositoryConstants.DESCRIPCION_COLUMN, String.class));
+                    entity.setFechaLanzamiento(row.get(RepositoryConstants.FECHA_LANZAMIENTO_COLUMN, java.time.LocalDate.class));
+                    entity.setDuracion(row.get(RepositoryConstants.DURACION_COLUMN, Integer.class));
                     return entity;
                 })
                 .all();
@@ -47,13 +45,12 @@ public class CustomBootcampRepositoryImpl implements CustomBootcampRepository {
 
     @Override
     public Mono<Long> countByFilters(BootcampCriteria criteria) {
-        String sql = "SELECT COUNT(*) AS total FROM bootcamp b";
-        return databaseClient.sql(sql)
-                .map((row, metadata) -> row.get("total", Long.class))
+        return databaseClient.sql(RepositoryConstants.COUNT_BOOTCAMP_QUERY)
+                .map((row, metadata) -> row.get(RepositoryConstants.TOTAL_COLUMN, Long.class))
                 .one();
     }
 
     private String getValidSortOrder(String sortOrder) {
-        return (sortOrder != null && sortOrder.equalsIgnoreCase("desc")) ? "DESC" : "ASC";
+        return (sortOrder != null && sortOrder.equalsIgnoreCase(RepositoryConstants.DESC_LOWERCASE)) ? RepositoryConstants.DESC_ORDER : RepositoryConstants.ASC_ORDER;
     }
 }

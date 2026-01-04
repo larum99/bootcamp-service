@@ -2,6 +2,7 @@ package com.onclass.bootcamp.infrastructure.adapters.client;
 
 import com.onclass.bootcamp.domain.spi.CapacidadClientPort;
 import com.onclass.bootcamp.domain.utils.CapacidadSummary;
+import com.onclass.bootcamp.infrastructure.adapters.util.ClientConstants;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.BootcampCapacidadDTO;
 import com.onclass.bootcamp.infrastructure.entrypoints.dto.CapacidadSummaryDTO;
 import com.onclass.bootcamp.infrastructure.entrypoints.util.Constants;
@@ -20,7 +21,7 @@ public class CapacidadClientAdapter implements CapacidadClientPort {
     private final WebClient webClient;
 
     public CapacidadClientAdapter(WebClient.Builder webClientBuilder,
-                                  @Value("${services.capacidad.url}") String capacidadUrl) {
+                                  @Value(ClientConstants.SERVICES_CAPACIDAD_URL_PROPERTY) String capacidadUrl) {
         this.webClient = webClientBuilder
                 .baseUrl(capacidadUrl)
                 .build();
@@ -33,8 +34,8 @@ public class CapacidadClientAdapter implements CapacidadClientPort {
                 .collectList()
                 .flatMap(dtos ->
                         webClient.post()
-                                .uri("/capacidad-bootcamps")
-                                .header(Constants.X_MESSAGE_ID, "12345")
+                                .uri(ClientConstants.CAPACIDAD_BOOTCAMPS_ENDPOINT)
+                                .header(Constants.X_MESSAGE_ID, ClientConstants.MESSAGE_ID_VALUE)
                                 .bodyValue(dtos)
                                 .retrieve()
                                 .bodyToMono(Void.class)
@@ -45,9 +46,9 @@ public class CapacidadClientAdapter implements CapacidadClientPort {
     public Flux<CapacidadSummary> findCapacidadesByBootcampId(Long bootcampId) {
         return webClient.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path("/capacidad-bootcamps/{bootcampId}/capacidades")
+                        .path(ClientConstants.CAPACIDAD_BOOTCAMPS_BY_ID_ENDPOINT)
                         .build(bootcampId))
-                .header(Constants.X_MESSAGE_ID, "12345")
+                .header(Constants.X_MESSAGE_ID, ClientConstants.MESSAGE_ID_VALUE)
                 .retrieve()
                 .bodyToFlux(CapacidadSummaryDTO.class)
                 .map(dto -> new CapacidadSummary(dto.id(), dto.nombre()));
@@ -57,9 +58,9 @@ public class CapacidadClientAdapter implements CapacidadClientPort {
     public Mono<List<Long>> eliminarCapacidadesPorBootcamp(Long bootcampId) {
         return webClient.delete()
                 .uri(uriBuilder -> uriBuilder
-                        .path("/capacidad-bootcamps/{bootcampId}")
+                        .path(ClientConstants.CAPACIDAD_BOOTCAMPS_DELETE_ENDPOINT)
                         .build(bootcampId))
-                .header(Constants.X_MESSAGE_ID, "12345")
+                .header(Constants.X_MESSAGE_ID, ClientConstants.MESSAGE_ID_VALUE)
                 .retrieve()
                 .bodyToFlux(Long.class)
                 .collectList();
@@ -69,9 +70,9 @@ public class CapacidadClientAdapter implements CapacidadClientPort {
     public Mono<Integer> countBootcampsByCapacidadId(Long capacidadId) {
         return webClient.get()
                 .uri(uriBuilder -> uriBuilder
-                        .path("/capacidades/{capacidadId}/bootcamps/count")
+                        .path(ClientConstants.CAPACIDADES_COUNT_BOOTCAMPS_ENDPOINT)
                         .build(capacidadId))
-                .header(Constants.X_MESSAGE_ID, "12345")
+                .header(Constants.X_MESSAGE_ID, ClientConstants.MESSAGE_ID_VALUE)
                 .retrieve()
                 .bodyToMono(Integer.class);
     }
@@ -80,10 +81,20 @@ public class CapacidadClientAdapter implements CapacidadClientPort {
     @Override
     public Mono<Void> eliminarCapacidadesPorIds(List<Long> capacidadIds) {
         return webClient.method(HttpMethod.DELETE)
-                .uri("/capacidades")
-                .header(Constants.X_MESSAGE_ID, "12345")
+                .uri(ClientConstants.CAPACIDADES_DELETE_ENDPOINT)
+                .header(Constants.X_MESSAGE_ID, ClientConstants.MESSAGE_ID_VALUE)
                 .bodyValue(capacidadIds)
                 .retrieve()
                 .bodyToMono(Void.class);
+    }
+
+    @Override
+    public Mono<Boolean> validateCapacidadesExist(List<Long> capacidadesIds) {
+        return webClient.post()
+                .uri(ClientConstants.CAPACIDADES_VALIDATE_ENDPOINT)
+                .header(Constants.X_MESSAGE_ID, ClientConstants.MESSAGE_ID_VALUE)
+                .bodyValue(capacidadesIds)
+                .retrieve()
+                .bodyToMono(Boolean.class);
     }
 }

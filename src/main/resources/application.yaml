@@ -107,3 +107,5 @@ services:
     url: http://localhost:8090/capacidad-service
   tecnologia:
     url: http://localhost:8080/tecnologia-service
+  reporte:
+    url: http://localhost:8093/reporte-service

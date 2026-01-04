@@ -10,6 +10,7 @@ import com.onclass.bootcamp.infrastructure.entrypoints.mapper.BootcampMapper;
 import com.onclass.bootcamp.infrastructure.entrypoints.util.APIResponse;
 import com.onclass.bootcamp.infrastructure.entrypoints.util.Constants;
 import com.onclass.bootcamp.infrastructure.entrypoints.util.ErrorDTO;
+import com.onclass.bootcamp.infrastructure.entrypoints.util.HandlerConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -44,10 +45,21 @@ public class BootcampHandlerImpl {
         return request.bodyToMono(BootcampDTO.class)
                 .flatMap(dto -> bootcampServicePort
                         .registrarBootcamp(bootcampMapper.toModel(dto), messageId)
-                        .doOnSuccess(saved -> log.info("Bootcamp creado con messageId: {}", messageId)))
-                .flatMap(saved -> ServerResponse
+                        .doOnSuccess(saved -> log.info(HandlerConstants.BOOTCAMP_CREATED_LOG, messageId))
+                        .map(saved -> {
+                            BootcampDTO responseDTO = bootcampMapper.toDTO(saved);
+                            responseDTO.setCapacidades(dto.getCapacidades());
+                            return APIResponse.builder()
+                                    .code(TechnicalMessage.BOOTCAMP_CREATED.getCode())
+                                    .message(TechnicalMessage.BOOTCAMP_CREATED.getDescription())
+                                    .identifier(messageId)
+                                    .date(Instant.now().toString())
+                                    .data(responseDTO)
+                                    .build();
+                        }))
+                .flatMap(response -> ServerResponse
                         .status(HttpStatus.CREATED)
-                        .bodyValue(TechnicalMessage.BOOTCAMP_CREATED.getDescription()))
+                        .bodyValue(response))
                 .contextWrite(Context.of(Constants.X_MESSAGE_ID, messageId))
                 .doOnError(ex -> log.error(Constants.BOOTCAMP_ERROR, ex))
                 .onErrorResume(ex -> handleErrors(ex, messageId));
@@ -56,10 +68,10 @@ public class BootcampHandlerImpl {
     public Mono<ServerResponse> getBootcamps(ServerRequest request) {
         String messageId = getMessageId(request);
 
-        int page = parseQueryParam(request, "page", 0);
-        int size = parseQueryParam(request, "size", 10);
-        String sortBy = request.queryParam("sortBy").orElse("nombre");
-        String sortOrder = request.queryParam("sortOrder").orElse("asc");
+        int page = parseQueryParam(request, HandlerConstants.PAGE_PARAM, HandlerConstants.DEFAULT_PAGE);
+        int size = parseQueryParam(request, HandlerConstants.SIZE_PARAM, HandlerConstants.DEFAULT_SIZE);
+        String sortBy = request.queryParam(HandlerConstants.SORT_BY_PARAM).orElse(HandlerConstants.DEFAULT_SORT_BY);
+        String sortOrder = request.queryParam(HandlerConstants.SORT_ORDER_PARAM).orElse(HandlerConstants.DEFAULT_SORT_ORDER);
 
         BootcampCriteria criteria = new BootcampCriteria();
         criteria.setPage(page);
@@ -74,22 +86,29 @@ public class BootcampHandlerImpl {
     }
 
     public Mono<ServerResponse> deleteBootcamp(ServerRequest request) {
-        Long bootcampId = Long.valueOf(request.pathVariable("id"));
+        String messageId = getMessageId(request);
+        Long bootcampId = Long.valueOf(request.pathVariable(HandlerConstants.ID_PATH_VARIABLE));
 
         return bootcampServicePort.eliminarBootcamp(bootcampId)
-                .then(ServerResponse.noContent().build())
-                .onErrorResume(e ->
-                        ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                                .bodyValue(e.getMessage())
-                );
+                .then(Mono.fromCallable(() -> APIResponse.builder()
+                        .code(TechnicalMessage.BOOTCAMP_DELETED.getCode())
+                        .message(TechnicalMessage.BOOTCAMP_DELETED.getDescription())
+                        .identifier(messageId)
+                        .date(Instant.now().toString())
+                        .build()))
+                .flatMap(response -> ServerResponse.ok().bodyValue(response))
+                .contextWrite(Context.of(Constants.X_MESSAGE_ID, messageId))
+                .onErrorResume(ex -> handleErrors(ex, messageId));
     }
 
     public Mono<ServerResponse> getBootcampById(ServerRequest request) {
-        Long id = Long.valueOf(request.pathVariable("id"));
+        String messageId = getMessageId(request);
+        Long id = Long.valueOf(request.pathVariable(HandlerConstants.ID_PATH_VARIABLE));
         return bootcampServicePort.obtenerBootcampPorId(id)
                 .flatMap(bootcamp ->
                         ServerResponse.ok().bodyValue(bootcamp))
-                .switchIfEmpty(ServerResponse.notFound().build());
+                .contextWrite(Context.of(Constants.X_MESSAGE_ID, messageId))
+                .onErrorResume(ex -> handleErrors(ex, messageId));
     }
 
     private int parseQueryParam(ServerRequest request, String name, int defaultValue) {
@@ -100,9 +119,21 @@ public class BootcampHandlerImpl {
 
 
     private Mono<ServerResponse> handleErrors(Throwable ex, String messageId) {
-        log.error("Error procesando solicitud con messageId: {}", messageId, ex);
+        log.error(HandlerConstants.ERROR_PROCESSING_REQUEST_LOG, messageId, ex);
 
         if (ex instanceof BusinessException businessEx) {
+            if (businessEx.getTechnicalMessage() == TechnicalMessage.BOOTCAMP_NOT_FOUND) {
+                return buildErrorResponse(
+                        HttpStatus.NOT_FOUND,
+                        messageId,
+                        businessEx.getTechnicalMessage(),
+                        List.of(ErrorDTO.builder()
+                                .code(businessEx.getTechnicalMessage().getCode())
+                                .message(businessEx.getTechnicalMessage().getDescription())
+                                .param(businessEx.getTechnicalMessage().getParam())
+                                .build()));
+            }
+            
             return buildErrorResponse(
                     HttpStatus.BAD_REQUEST,
                     messageId,
