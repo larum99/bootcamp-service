@@ -12,8 +12,8 @@ public class OpenApiConfig {
     public OpenAPI customOpenAPI() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("Capacidad Service API")
+                        .title("Bootcamp Service API")
                         .version("1.0")
-                        .description("Microservicio para gestionar Capacidades"));
+                        .description("Microservicio para gestionar Bootcamps"));
     }
 }

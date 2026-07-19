@@ -30,7 +30,7 @@ dependencies {
 
 	// --- Utilidades comunes ---
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.6.0'
+	implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.8.6'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 
 	// --- Lombok y MapStruct ---

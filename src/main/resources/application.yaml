@@ -2,14 +2,15 @@ server:
   port: 8091
 
 spring:
-  webflux:
-    base-path: /bootcamp-service
   application:
     name: bootcamp-service
+  sql:
+    init:
+      mode: always
   r2dbc:
     url: r2dbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:bootcamp}
     username: ${DB_USER:root}
-    password: ${DB_PASSWORD:Pragma08679}
+    password: ${DB_PASSWORD}
   main:
     web-application-type: reactive
 
@@ -99,8 +100,6 @@ resilience4j:
 springdoc:
   api-docs:
     enabled: true
-  swagger-ui:
-    path: /swagger-ui.html
 
 services:
   capacidad:
